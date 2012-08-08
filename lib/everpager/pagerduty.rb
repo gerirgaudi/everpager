@@ -10,7 +10,6 @@ module Everpager
     class Incident
 
       INTEGRATION_API_URL = "https://events.pagerduty.com/generic/2010-04-15/create_event.json"
-      INCIDENT_API_URL = "https://enops.pagerduty.com/api/v1/incidents"
 
       INCIDENT_STATUS = {
           :triggered    => 'Triggered',
@@ -78,6 +77,47 @@ module Everpager
               @error = @resp['error']
               raise PagerdutyError, "#@error: #@message"
             end
+          else
+            raise PagerdutyError, res.error!
+        end
+      end
+    end
+
+    class IncidentSet
+
+      INCIDENT_API_URL = "https://enops.pagerduty.com/api/v1/incidents"
+
+      attr_reader :username, :password, :incidents, :total, :limit, :offset
+
+      def initialize(username,password)
+        @username = username
+        @password = password
+        @filter = nil
+        @incidents = nil
+        @total = 0
+        @limit = 0
+        @offset = 0
+      end
+
+      protected
+
+      def api_call(method=nil)
+        url = URI.parse("#{INCIDENT_API_URL}/#{method}")
+
+        http = Net::HTTP.new(url.host, url.port)
+        http.use_ssl = true
+
+        req = Net::HTTP::Get.new(url.request_uri)
+        req.basic_auth(@username,@password)
+
+        res = http.request(req)
+        case res
+          when Net::HTTPSuccess, Net::HTTPRedirection
+            resp = JSON.parse(res.body)
+            @incidents = resp["incidents"]
+            @total = resp["total"]
+            @offset = resp["offset"]
+            @limit = resp["limit"]
           else
             raise PagerdutyError, res.error!
         end

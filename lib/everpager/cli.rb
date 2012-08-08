@@ -78,6 +78,8 @@ module Everpager
       end
       opts.separator "Common options:"
       opts.on('-K', '--service-key KEY',      String,      "Pagerduty service key (required)")                                { |key|       @global_options[:pd_service_key] = key }
+      opts.on('-u', '--username USERNAME',    String,      "Pagerduty account username")                                      { |username|  @global_options[:username] = username }
+      opts.on('-p', '--password PASSWORD',    String,      "Pagerduty account password")                                      { |password|  @global_options[:password] = password }
       opts.separator ""
       opts.separator "Trigger options:"
       opts.on('-H', '--hostname HOSTNAME',    String,      "Hostname (required)")                                             { |hostname|  @global_options[:hostname] = hostname }
@@ -101,11 +103,16 @@ module Everpager
 
       case @whoami
         when :notify_pagerduty
-          @action = :from_state
+          case @global_options[:notification_type]
+            when :problem then @action = :trigger
+            when :recovery then @action = :resolve
+            when :acknowledgement then @action = :acknowledge
+            else raise OptionParser::InvalidArgument, "invalid notification type #{@global_options[:notification_type]}"
+          end
         else
           @action = @arguments.shift.to_sym
       end
-      raise OptionParser::InvalidArgument, "invalid action #@action" if [:trigger,:acknowledge,:resolve,:list].include?(@action)
+      raise OptionParser::InvalidArgument, "invalid action #@action" unless [:trigger,:acknowledge,:resolve,:list].include?(@action)
     end
 
     def options_valid?
@@ -128,22 +135,28 @@ module Everpager
     end
 
     def process_command
-      ap @global_options if @global_options[:debug]
-      ap @details if @global_options[:debug]
+      case @action
+        when :trigger,:acknowledge,:resolve
+          ap @global_options if @global_options[:debug]
+          ap @details if @global_options[:debug]
 
-      description = "#{@global_options[:hostalias]}: #{@global_options[:svc_descr]}: #{@global_options[:svc_output]}"
-      incident_key = "#{@global_options[:svc_descr]}@#{@global_options[:hostalias]}"
+          description = "#{@global_options[:hostalias]}: #{@global_options[:svc_descr]}: #{@global_options[:svc_output]}"
+          incident_key = "#{@global_options[:svc_descr]}@#{@global_options[:hostalias]}"
 
-      p = Incident.new(@global_options[:pd_service_key],incident_key)
-      case @global_options[:notification_type]
-        when :problem then p.trigger(description,@details)
-        when :acknowledgement then p.acknowledge(description,@details)
-        when :recovery then p.resolve(description,@details)
-        else output_message("unknown notification type #{@global_options[:notification_type]}",1)
+          p = Incident.new(@global_options[:pd_service_key],incident_key)
+          case @global_options[:notification_type]
+            when :problem then p.trigger(description,@details)
+            when :acknowledgement then p.acknowledge(description,@details)
+            when :recovery then p.resolve(description,@details)
+          end
+          syslog_message = "#{@global_options[:notification_type]} #{@global_options[:hostalias]}: #{@global_options[:svc_descr]}: #{p.state} #{p.incident_key}"
+          Syslog.open(ID.to_s, Syslog::LOG_PID, Syslog::LOG_DAEMON) { |s| s.info syslog_message }
+          ap p if @global_options[:debug]
+        when :list
+          incidents = IncidentSet.new(@global_options[:username],@global_options[:password])
+          ap incidents
       end
-      syslog_message = "#{@global_options[:notification_type]} #{@global_options[:hostalias]}: #{@global_options[:svc_descr]}: #{p.state} #{p.incident_key}"
-      Syslog.open(ID.to_s, Syslog::LOG_PID, Syslog::LOG_DAEMON) { |s| s.info syslog_message }
-      ap p if @global_options[:debug]
+
     end
 
     def output_message(message, exitstatus=nil)
@@ -151,7 +164,6 @@ module Everpager
       $stderr.write "#{m}\n" if STDIN.tty?
       exit exitstatus unless exitstatus.nil?
     end
-
 
   end
 
