@@ -92,8 +92,7 @@ module Everpager
       def initialize(username,password)
         @username = username
         @password = password
-        @filter = nil
-        @incidents = nil
+        @incidents = {}
         @total = 0
         @limit = 0
         @offset = 0

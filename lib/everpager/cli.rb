@@ -74,12 +74,13 @@ module Everpager
           opts.separator "    trigger                          Trigger Pagerduty incident"
           opts.separator "    acknowledge                      Acknowledge a Pagerduty incident"
           opts.separator "    resolve                          Resolve a Pagerduty indicent"
+          opts.separator "    list                             List Pagerduty incidents"
           opts.separator ""
       end
       opts.separator "Common options:"
       opts.on('-K', '--service-key KEY',      String,      "Pagerduty service key (required)")                                { |key|       @global_options[:pd_service_key] = key }
-      opts.on('-u', '--username USERNAME',    String,      "Pagerduty account username")                                      { |username|  @global_options[:username] = username }
-      opts.on('-p', '--password PASSWORD',    String,      "Pagerduty account password")                                      { |password|  @global_options[:password] = password }
+      opts.on('-u', '--username USERNAME',    String,      "Pagerduty account username (for list)")                           { |username|  @global_options[:username] = username }
+      opts.on('-p', '--password PASSWORD',    String,      "Pagerduty account password (for list)")                           { |password|  @global_options[:password] = password }
       opts.separator ""
       opts.separator "Trigger options:"
       opts.on('-H', '--hostname HOSTNAME',    String,      "Hostname (required)")                                             { |hostname|  @global_options[:hostname] = hostname }
