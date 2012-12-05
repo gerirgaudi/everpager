@@ -18,6 +18,8 @@ Gem::Specification.new do |s|
   s.license                   = "Internal use only"
   s.required_rubygems_version = ">= 1.3.5"
 
+  s.add_dependency('inifile')
+
   s.files        = Dir['lib/**/*.rb'] + Dir['bin/*'] + %w(LICENSE README.md)
   s.executables  = Dir['bin/*'].map { |entry| entry.gsub('bin/','') }
   s.require_path = 'lib'

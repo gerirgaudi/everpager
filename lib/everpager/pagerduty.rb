@@ -17,7 +17,7 @@ module Everpager
           :resolved     => 'Resolved'
       }
 
-      attr_reader :service_key, :incident_key, :status, :state, :error, :message, :description, :details, :resp
+      attr_reader :service_key, :incident_key, :status, :state, :error, :message, :description, :details
 
       def initialize(service_key, incident_key = nil)
         @service_key = service_key
