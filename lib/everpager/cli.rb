@@ -11,8 +11,6 @@ module Everpager
 
   class CLI
 
-    include PagerDuty
-
     STATUS = {
         :ok               =>  OpenStruct.new({ :num => 0, :str => "OK" }),
         :warning          =>  OpenStruct.new({ :num => 1, :str => "WARNING"}),
@@ -63,6 +61,7 @@ module Everpager
          @log = Logger.new(STDOUT)
          @log.datetime_format = ""
          @log.level = Logger::FATAL unless @global_options[:debug]
+         @global_options[:log] = @log
 
          loaded_config?
          config_valid?
@@ -109,12 +108,13 @@ module Everpager
       end
       unless @global_options[:context] == :splunk
         opts.separator "Common options:"
-        opts.on('-K', '--service-key KEY',              String,  "Pagerduty service key (required)")                                { |o| @global_options[:pd_service_key] =  o }
+        opts.on('-K', '--api-key KEY',                  String,  "Pagerduty service/access key (required)")                         { |o| @global_options[:api_key] =         o }
         opts.on('-u', '--username USERNAME',            String,  "Pagerduty account username (for list)")                           { |o| @global_options[:username] =        o }
         opts.on('-p', '--password PASSWORD',            String,  "Pagerduty account password (for list)")                           { |o| @global_options[:password] =        o }
         opts.on('-C', '--context CONTEXT',              String,  "Application context (#{contexts.join(',')})")                     { |o| @global_options[:context] =         o.to_sym } if @global_options[:context] == :shell
-        opts.on('-c', '--appconf CONFIG',               String,  "Pagerduty API keys")                                              { |o| @global_options[:appconf] =         o }
+        opts.on('-c', '--appconf CONFIG',               String,  "Pagerduty API keys config file")                                  { |o| @global_options[:appconf] =         o }
         opts.on('-k', '--key KEY',                      String,  "Key")                                                             { |o| @global_options[:key] =             o }
+        opts.on('-d', '--subdomain SUBDOMAIN',          String,  "Subdomain")                                                       { |o| @global_options[:subdomain] =       o }
       end
       if @global_options[:context] == :nagios
         opts.separator ""
@@ -180,7 +180,7 @@ module Everpager
           else
             key = @global_options[:key]
           end
-          @global_options[:pd_service_key] = @global_options[:config][key]['service_key'] unless key.nil?
+          @global_options[:api_key] = @global_options[:config][key]['service_key'] unless key.nil?
       end
 
       @log.debug "action: #@action; event: #@event"
@@ -203,6 +203,8 @@ module Everpager
           @global_options[:svc_descr] = ARGV[3]
           @global_options[:svc_output] = ARGV[0] + ' events'
       end
+
+      @log.debug "#@action #@component"
     end
 
     def process_command
@@ -220,14 +222,16 @@ module Everpager
 
       case @action
         when :event
-          event = Action::Event.new @global_options[:pd_service_key], :incident_key => incident_key, :log => @log
+          event = Action::Event.new @global_options[:api_key], :incident_key => incident_key, :log => @log
           case @event
             when :trigger     then event.trigger(description,@details)
             when :acknowledge then event.acknowledge(description,@details)
             when :resolve     then event.resolve(description,@details)
           end
-        when :show
-          show = Action::Show.new(:foo,:bar)
+        when :list
+          list = Action::List.new(@arguments,@global_options)
+          list.exec
+#          list.list(@component)
       end
 
 #      syslog_message = "#{@global_options[:notification_type]} #{@global_options[:hostalias]}: #{@global_options[:svc_descr]}: #{p.state} #{p.incident_key}"

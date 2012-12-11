@@ -1,5 +1,5 @@
 require 'everpager/action/event'
-require 'everpager/action/show'
+require 'everpager/action/list'
 
 module Everpager; module Action
 

@@ -27,7 +27,7 @@ module Everpager; module PagerDuty
         @description = nil
         @details = {}
         @response = nil
-        @session = Session.new("events",@api_path)
+        @session = Session.new "events",@api_path
         @log = setup_log(params[:log])
       end
 
@@ -36,9 +36,9 @@ module Everpager; module PagerDuty
         details = args[1]
 
         case method.to_sym
-          when :trigger     then event(:trigger,description,details)
-          when :acknowledge then event(:acknowledge,description,details)
-          when :resolve     then event(:resolve,description,details)
+          when :trigger     then event :trigger, description, details
+          when :acknowledge then event :acknowledge, description, details
+          when :resolve     then event :resolve, description, details
           else super
         end
       end
