@@ -1,18 +1,16 @@
 require 'json'
 require 'net/http'
 require 'ostruct'
+require 'logger'
 require 'everpager/pagerduty/helpers/session'
 
-module Everpager
+module Everpager; module PagerDuty
 
-  module PagerDuty
-
-    class PagerdutyError < StandardError; end
+    class PagerDutyError < StandardError; end
 
     class Event
 
       include Helpers
-
 
       EVENTS = {
           :trigger      => OpenStruct.new(:type => 'trigger',     :state => :triggered,     :display => 'Triggered'),
@@ -22,26 +20,27 @@ module Everpager
 
       attr_reader :service_key, :incident_key, :status, :state, :error, :message, :description, :details
 
-      def initialize(service_key, params = { :incident_key => nil, :api_path => "/generic/2010-04-15/create_event.json"} )
+      def initialize(service_key, params = {} )
         @service_key = service_key
-        @incident_key = incident_key
+        @incident_key = params[:incident_key]
         @api_path = params[:api_path] ? params[:api_path] : "/generic/2010-04-15/create_event.json"
         @description = nil
         @details = {}
         @response = nil
         @session = Session.new("events",@api_path)
+        @log = setup_log(params[:log])
       end
 
-      def trigger(description, details = {})
-        event(:trigger,description,details)
-      end
+      def method_missing(method, *args, &block)
+        description = args[0]
+        details = args[1]
 
-      def acknowledge(description, details = {})
-        event(:acknowledge,description,details)
-      end
-
-      def resolve(description, details = {})
-        event(:resolve,description,details)
+        case method.to_sym
+          when :trigger     then event(:trigger,description,details)
+          when :acknowledge then event(:acknowledge,description,details)
+          when :resolve     then event(:resolve,description,details)
+          else super
+        end
       end
 
       protected
@@ -50,12 +49,24 @@ module Everpager
         data = { :event_type => EVENTS[e].type, :service_key => @service_key, :description => description, :details => details }
         data.merge!({ :incident_key => @incident_key }) unless @incident_key == nil
 
+        @log.debug "data: #{data}"
+
         @response = EventResponse.new @session.post(data)
         raise PagerDutyError @response.message unless @response.status == :success
 
         @description = description
         @details = details
         @incident_key = @response.incident_key
+      end
+
+      def setup_log(log)
+        if log.nil?
+          @log = Logger.new(STDERR)
+          @log.level = Logger::FATAL
+        else
+          @log = log
+        end
+        @log
       end
     end
 
@@ -71,11 +82,9 @@ module Everpager
 
       def initialize(response)
         r = JSON.parse(response)
-        puts r
-        exit 0
-        @status = response["status"].to_sym
-        @message = response["message"]
-        @incident_key = response['incident_key']
+        @status = r["status"].to_sym
+        @message = r["message"]
+        @incident_key = r['incident_key']
       end
 
     end

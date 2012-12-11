@@ -2,7 +2,8 @@ require 'optparse'
 require 'ostruct'
 require 'syslog'
 require 'inifile'
-require 'everpager/pagerduty'
+require 'logger'
+require 'everpager/action'
 require 'everpager/version'
 require 'everpager/about'
 
@@ -35,6 +36,9 @@ module Everpager
       @global_options = { :debug => false, :help => false, :context => nil, :appconf => DEFAULT_APP_CONF, :config => nil }
       @global_options[:appconf] = ENV['SPLUNK_HOME'] + '/' +  DEFAULT_APP_CONF if ENV['SPLUNK_HOME']
       @action = nil
+      @event = nil
+      @description = nil
+      @details = {}
 
       case ID
         when :everpager, :splunk_alert_pagerduty  then @global_options[:context] = :shell
@@ -48,15 +52,18 @@ module Everpager
             @global_options[:key] = nil
           end
       end
-
-      @details = {}
-
     end
 
     def run
-       begin
+
+      begin
          parsed_options?
          options_valid?
+
+         @log = Logger.new(STDOUT)
+         @log.datetime_format = ""
+         @log.level = Logger::FATAL unless @global_options[:debug]
+
          loaded_config?
          config_valid?
          arguments_valid?
@@ -154,10 +161,11 @@ module Everpager
     def process_options
       case @global_options[:context]
         when :nagios
+          @action = :event
           case @global_options[:notification_type]
-            when :problem then @action = :trigger
-            when :recovery then @action = :resolve
-            when :acknowledgement then @action = :acknowledge
+            when :problem then @event = :trigger
+            when :recovery then @event = :resolve
+            when :acknowledgement then @event = :acknowledge
             else raise OptionParser::InvalidArgument, "invalid notification type #{@global_options[:notification_type]}"
           end
           [ :hostname, :ipaddress, :hostalias, :svc_descr, :status].each do |s|
@@ -165,7 +173,8 @@ module Everpager
           end
         when :splunk
           @global_options[:notification_type] = :problem
-          @action = :trigger
+          @action = :event
+          @event = :trigger
           if @global_options[:key].nil?
             key = ID.to_s.gsub(/^splunk_alert_pagerduty_/,'')
           else
@@ -173,11 +182,19 @@ module Everpager
           end
           @global_options[:pd_service_key] = @global_options[:config][key]['service_key'] unless key.nil?
       end
+
+      @log.debug "action: #@action; event: #@event"
     end
 
     def process_arguments
-      @action = @arguments.shift.to_sym if @global_options[:context] == :shell
-      raise OptionParser::InvalidArgument, "invalid action #@action" unless [:trigger,:acknowledge,:resolve,:list].include?(@action)
+      if @global_options[:context] == :shell
+        @action = @arguments.shift.to_sym
+        if [:trigger,:acknowledge,:resolve].include?(@action)
+          @event = @action
+          @action = :event
+        end
+      end
+#      raise OptionParser::InvalidArgument, "invalid action #@action" unless [:trigger,:acknowledge,:resolve,:list].include?(@action)
 
       case @global_options[:context]
         when :nagios,:shell
@@ -201,25 +218,26 @@ module Everpager
           description = "#{incident_key}: #{@global_options[:svc_output]}"
       end
 
-      p = Event.new @global_options[:pd_service_key], :incident_key => incident_key
-
       case @action
-        when :trigger then p.trigger(description,@details)
-        when :acknowledge then p.acknowledge(description,@details)
-        when :recover then p.resolve(description,@details)
+        when :event
+          event = Action::Event.new @global_options[:pd_service_key], :incident_key => incident_key, :log => @log
+          case @event
+            when :trigger     then event.trigger(description,@details)
+            when :acknowledge then event.acknowledge(description,@details)
+            when :resolve     then event.resolve(description,@details)
+          end
+        when :show
+          show = Action::Show.new(:foo,:bar)
       end
-      syslog_message = "#{@global_options[:notification_type]} #{@global_options[:hostalias]}: #{@global_options[:svc_descr]}: #{p.state} #{p.incident_key}"
-      Syslog.open(ID.to_s, Syslog::LOG_PID, Syslog::LOG_DAEMON) { |s| s.info syslog_message }
+
+#      syslog_message = "#{@global_options[:notification_type]} #{@global_options[:hostalias]}: #{@global_options[:svc_descr]}: #{p.state} #{p.incident_key}"
+#      Syslog.open(ID.to_s, Syslog::LOG_PID, Syslog::LOG_DAEMON) { |s| s.info syslog_message }
     end
 
     def output_message(message, exitstatus=nil)
       m = (! exitstatus.nil? and exitstatus > 0) ? "%s: error: %s" % [ID, message] : message
       $stderr.write "#{m}\n" if STDIN.tty?
       exit exitstatus unless exitstatus.nil?
-    end
-
-    def list_incidents
-      p = IncidentSet(domain)
     end
 
   end

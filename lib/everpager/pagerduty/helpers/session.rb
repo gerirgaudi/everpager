@@ -49,7 +49,7 @@ module Everpager; module PagerDuty; module Helpers
         when Net::HTTPSuccess, Net::HTTPRedirection
           return res.body
         else
-          raise PagerdutyError, res.error!
+          raise PagerDutyError, res.error!
       end
     end
 
