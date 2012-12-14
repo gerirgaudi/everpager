@@ -1,6 +1,4 @@
-require 'everpager/pagerduty/event'
-require 'everpager/pagerduty/incident'
-require 'everpager/pagerduty/user'
+require 'everpager/pagerduty'
 
 module Everpager
 

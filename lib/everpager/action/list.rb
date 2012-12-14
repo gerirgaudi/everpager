@@ -7,7 +7,7 @@ module Everpager; module Action
 
     include Everpager::PagerDuty
 
-    COMPONENTS = [ :incidents, :alerts, :users ]
+    COMPONENTS = [ :incidents, :alerts, :users, :log_entries, :schedules, :services ]
 
     def initialize(arguments,options)
 
@@ -17,7 +17,14 @@ module Everpager; module Action
       @component = @arguments.shift.to_sym unless @arguments.empty?
       raise StandardError, "invalid component #@component" unless COMPONENTS.include?(@component)
 
-      api_params = Incident::API_PARAMS['incidents'].params
+      api_params = case @component
+                      when :incidents then Incidents.api_params[@component].params
+                      when :users then Users.api_params[@component].params
+                      when :log_entries then Log_Entries.api_params[@component].params
+                      when :alerts then Alerts.api_params[@component].params
+                      when :schedules then Schedules.api_params[@component].params
+                      when :services then Services.api_params[@component].params
+                   end
 
       opts = OptionParser.new
       opts.banner = "Usage: #{ID} [options] list <component>"
@@ -29,7 +36,6 @@ module Everpager; module Action
         opts.on("--#{p} #{param.param}", String, param.description)        { |o| @params[p] = o }
       end
       opts.order!(@arguments)
-#      puts opts
 
       @component = @arguments.shift.to_sym unless @arguments.empty?
 
@@ -38,18 +44,20 @@ module Everpager; module Action
       arguments_valid?
       process_arguments
 
-#      @list = { :incidents => self.method(:list_incidents),
-#                :alerts => self.method(:list_alerts),
-#                :users => self.method(:list_users)
-#      }
-
-      @list = Incident.new @options[:subdomain],@options
-
       @log = options[:log]
+      @list = case @component
+                when :incidents     then Incidents.new @options[:subdomain],@options
+                when :alerts        then Alerts.new @options[:subdomain],@options
+                when :users         then Users.new @options[:subdomain],@options
+                when :log_entries   then Log_Entries.new @options[:subdomain],@options
+                when :schedules     then Schedules.new @options[:subdomain],@options
+                when :services      then Services.new @options[:subdomain],@options
+      end
     end
 
     def exec
-      @list.find @params
+      component_list = @list.find(@params)
+      component_list.each { |i| puts i.to_s }
     end
 
     protected
@@ -67,18 +75,6 @@ module Everpager; module Action
     end
 
     def process_arguments
-
-    end
-
-    def list_incidents
-
-    end
-
-    def list_alerts
-
-    end
-
-    def list_users
 
     end
 

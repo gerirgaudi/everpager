@@ -17,8 +17,6 @@ module Everpager; module PagerDuty; module Helpers
       @http[:basic_auth] = { :username => options[:username], :password =>  option[:password] } if options[:username]
 
       @log = options[:log]
-      @log.debug @http.inspect
-
     end
 
     def get(params)
@@ -37,6 +35,7 @@ module Everpager; module PagerDuty; module Helpers
 
     def api(http_method,params = {})
       uri = URI.parse("#{@http[:url]}")
+      @log.debug uri
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = true
       req = nil
@@ -54,7 +53,6 @@ module Everpager; module PagerDuty; module Helpers
 
       req.basic_auth(@http[:basic_auth][:username],@http[:basic_auth][:password]) if @http[:basic_auth]
 
-      @log.debug req
       @http[:headers].each do |k,v|
         req[k] = v
       end
@@ -63,7 +61,6 @@ module Everpager; module PagerDuty; module Helpers
 
       case res
         when Net::HTTPSuccess, Net::HTTPRedirection
-          puts res.body
           return res.body
         else
           raise PagerDutyError, res.error!
