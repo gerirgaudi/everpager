@@ -1,12 +1,12 @@
 # OVERVIEW
 
-*Everpager* is a Ruby library that implements the PagerDuty APIs. Additionally, it provides utilities to send PagerDuty events from Nagios (as notifications) and Splunk (as alert scripts).
+*Everpager* is both Ruby library that implements PagerDuty's Integration API and (work-in-progress) REST API, wrapping them under a friendlier interface, and several utities to work with PagerDuty from a command-line interface, and with Nagios (for notifications) and Splunk (for script alerts).
 
 # SYNOPSIS
 
-## General
+## Shell
 
-    everpager [global-options] <action> [action-options]
+    everpager [global-options] <action> [<collection>] [collection-options]
     
 ## Nagios
 

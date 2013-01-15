@@ -30,26 +30,11 @@ module Everpager
 
     def initialize(arguments)
       @arguments = arguments
-      @whoami = File.basename($PROGRAM_NAME).to_sym
-      @global_options = { :debug => false, :help => false, :context => nil, :appconf => DEFAULT_APP_CONF, :config => nil }
-      @global_options[:appconf] = ENV['SPLUNK_HOME'] + '/' +  DEFAULT_APP_CONF if ENV['SPLUNK_HOME']
+      @global_options = default_global_options
       @action = nil
       @event = nil
-      @description = nil
-      @details = {}
 
-      case ID
-        when :everpager, :splunk_alert_pagerduty  then @global_options[:context] = :shell
-        when :notify_pagerduty                    then @global_options[:context] = :nagios
-        else
-          if ID.to_s.start_with?('splunk_alert_pagerduty_')
-            @global_options[:context] = :splunk
-            @global_options[:key] = ID.to_s.gsub(/^splunk_alert_pagerduty_/,'')
-          else
-            @global_options[:context] = nil
-            @global_options[:key] = nil
-          end
-      end
+      @details = {}
     end
 
     def run
@@ -57,12 +42,7 @@ module Everpager
       begin
          parsed_options?
          options_valid?
-
-         @log = Logger.new(STDOUT)
-         @log.datetime_format = ""
          @log.level = Logger::FATAL unless @global_options[:debug]
-         @global_options[:log] = @log
-
          loaded_config?
          config_valid?
          arguments_valid?
@@ -86,15 +66,17 @@ module Everpager
       notification_types = NOTIFICATION_TYPE.keys
       contexts = APPLICATION_CONTEXTS
 
+      pri_context = @global_options[:context][0]
+
       opts = OptionParser.new
 
-      case @global_options[:context]
+      case pri_context
         when :shell   then opts.banner = "Usage: #{ID} [options] <action> <description>"
         when :nagios  then opts.banner = "Usage: #{ID} [options] <description>"
         when :splunk  then opts.banner = "Usage: #{ID} [options] <description>"
         else opts.banner = "Usage: #{ID} [options] <action> <description>"
       end
-      case @global_options[:context]
+      case pri_context
         when :shell
           opts.separator ""
           opts.separator "Actions:"
@@ -106,17 +88,16 @@ module Everpager
         else
           opts.separator ""
       end
-      unless @global_options[:context] == :splunk
+      unless pri_context == :splunk
         opts.separator "Common options:"
-        opts.on('-K', '--api-key KEY',                  String,  "Pagerduty service/access key (required)")                         { |o| @global_options[:api_key] =         o }
+        opts.on('-K', '--key-token KEY',                String,  "Pagerduty service/access key (required)")                         { |o| @global_options[:key] =             o }
         opts.on('-u', '--username USERNAME',            String,  "Pagerduty account username (for list)")                           { |o| @global_options[:username] =        o }
         opts.on('-p', '--password PASSWORD',            String,  "Pagerduty account password (for list)")                           { |o| @global_options[:password] =        o }
         opts.on('-C', '--context CONTEXT',              String,  "Application context (#{contexts.join(',')})")                     { |o| @global_options[:context] =         o.to_sym } if @global_options[:context] == :shell
         opts.on('-c', '--appconf CONFIG',               String,  "Pagerduty API keys config file")                                  { |o| @global_options[:appconf] =         o }
-        opts.on('-k', '--key KEY',                      String,  "Key")                                                             { |o| @global_options[:key] =             o }
         opts.on('-d', '--subdomain SUBDOMAIN',          String,  "Subdomain")                                                       { |o| @global_options[:subdomain] =       o }
       end
-      if @global_options[:context] == :nagios
+      if pri_context == :nagios
         opts.separator ""
         opts.separator "Nagios options:"
         opts.on('-H', '--hostname HOSTNAME',            String,  "Hostname (required)")                                             { |o| @global_options[:hostname] =        o }
@@ -139,12 +120,10 @@ module Everpager
       opts.order!(@arguments)
       output_message opts, 0 if @arguments.size == 0 or @global_options[:HELP]
 
+      @log = @global_options[:log]
     end
 
     def options_valid?
-#      [ :pd_service_key, :problemid, :hostname, :ipaddress, :hostalias, :svc_descr, :status, :notification_type].each do |s|
-#        raise OptionParser::MissingArgument, "missing #{s} option" if @global_options[s].nil?
-#      end
     end
 
     def loaded_config?
@@ -152,14 +131,14 @@ module Everpager
     end
 
     def config_valid?
-
     end
 
     def arguments_valid?
     end
 
     def process_options
-      case @global_options[:context]
+      @log.debug "context: #{@global_options[:context].join(' > ')}"
+      case @global_options[:context][0]
         when :nagios
           @action = :event
           case @global_options[:notification_type]
@@ -182,12 +161,10 @@ module Everpager
           end
           @global_options[:api_key] = @global_options[:config][key]['service_key'] unless key.nil?
       end
-
-      @log.debug "action: #@action; event: #@event"
     end
 
     def process_arguments
-      if @global_options[:context] == :shell
+      if @global_options[:context][0] == :shell
         @action = @arguments.shift.to_sym
         if [:trigger,:acknowledge,:resolve].include?(@action)
           @event = @action
@@ -196,22 +173,21 @@ module Everpager
       end
 #      raise OptionParser::InvalidArgument, "invalid action #@action" unless [:trigger,:acknowledge,:resolve,:list].include?(@action)
 
-      case @global_options[:context]
+      case @global_options[:context][0]
         when :nagios,:shell
           @global_options[:svc_output] = @arguments.join(' ')
         when :splunk
           @global_options[:svc_descr] = ARGV[3]
           @global_options[:svc_output] = ARGV[0] + ' events'
       end
-
-      @log.debug "#@action #@component"
     end
 
     def process_command
+      @log.debug "action: #@action"
       description = "invalid description"
       incident_key = nil
 
-      case @global_options[:context]
+      case @global_options[:context][0]
         when :nagios
           incident_key = "#{@global_options[:svc_descr]}@#{@global_options[:hostalias]}"
           description = "#{@global_options[:hostalias]}: #{@global_options[:svc_descr]}: #{@global_options[:svc_output]}"
@@ -219,15 +195,14 @@ module Everpager
           incident_key = "#{@global_options[:svc_descr]}".gsub(/::/,'/').gsub(/\s+/,'')
           description = "#{incident_key}: #{@global_options[:svc_output]}"
       end
+      @log.debug "incident_key: #{incident_key}"
+      @log.debug "description: #{description}"
 
       case @action
         when :event
-          event = Action::Event.new @global_options[:api_key], :incident_key => incident_key, :log => @log
-          case @event
-            when :trigger     then event.trigger(description,@details)
-            when :acknowledge then event.acknowledge(description,@details)
-            when :resolve     then event.resolve(description,@details)
-          end
+          @log.debug "event: #@event"
+          event = Action::Event.new @global_options[:key], :incident_key => incident_key, :log => @log
+          event.send(@event,description,@details)
         when :list
           list = Action::List.new(@arguments,@global_options)
           list.exec
@@ -242,6 +217,36 @@ module Everpager
       m = (! exitstatus.nil? and exitstatus > 0) ? "%s: error: %s" % [ID, message] : message
       $stderr.write "#{m}\n" if STDIN.tty?
       exit exitstatus unless exitstatus.nil?
+    end
+
+    def default_global_options
+      global_options = { :debug => false, :help => false, :context => contextualize, :appconf => DEFAULT_APP_CONF, :config => nil, :auth => {}, :log => setup_log }
+      global_options[:appconf] = ENV['SPLUNK_HOME'] + '/' +  DEFAULT_APP_CONF if ENV['SPLUNK_HOME']
+      global_options
+    end
+
+    def contextualize
+      context = []
+      case ID
+        when :everpager
+          context.push(:shell)
+        when :notify_pagerduty
+          context.push(:nagios)
+        else
+          if ID.to_s.start_with?('splunk_alert_pagerduty_')
+            context.push(:splunk)
+            context.push(ID.to_s.gsub(/^splunk_alert_pagerduty_/,''))
+          else
+            context = nil
+          end
+      end
+      context
+    end
+
+    def setup_log
+      log = Logger.new(STDOUT)
+      log.datetime_format = ""
+      log
     end
 
   end

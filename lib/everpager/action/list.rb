@@ -7,57 +7,50 @@ module Everpager; module Action
 
     include Everpager::PagerDuty
 
-    COMPONENTS = [ :incidents, :alerts, :users, :log_entries, :schedules, :services ]
+    COLLECTIONS = Everpager::PagerDuty::API::REST::APIS
 
     def initialize(arguments,options)
 
-      @arguments = arguments
-      @options = options
-      @params = {}
-      @component = @arguments.shift.to_sym unless @arguments.empty?
-      raise StandardError, "invalid component #@component" unless COMPONENTS.include?(@component)
+      @log = options[:log]
 
-      api_params = case @component
-                      when :incidents then Incidents.api_params[@component].params
-                      when :users then Users.api_params[@component].params
-                      when :log_entries then Log_Entries.api_params[@component].params
-                      when :alerts then Alerts.api_params[@component].params
-                      when :schedules then Schedules.api_params[@component].params
-                      when :services then Services.api_params[@component].params
-                   end
+      c_options = {}
+      if options.has_key?(:key)
+        c_options[:api_token] = options[:key]
+      elsif options.has_key?(:username) and options.has_key?(:password)
+        c_options[:username],c_options[:password] = options[:username],options[:password]
+      end
+
+      @params = {}
+
+      @collection = arguments.shift.to_sym unless arguments.empty?
+      raise ArgumentError, "invalid argument #@collection" unless COLLECTIONS.has_key?(@collection)
+
+      api_params = COLLECTIONS[@collection].api.by_nickname[:find][:operation][:parameters]
 
       opts = OptionParser.new
-      opts.banner = "Usage: #{ID} [options] list <component>"
+      opts.banner = "Usage: #{ID} [options] list <collection>"
       opts.separator ""
-      opts.separator "      <component> is #{COMPONENTS.join(',')}"
+      opts.separator "      <component> is #{COLLECTIONS.keys.join(',')}"
       opts.separator ""
-      api_params.each do |p,param|
-        @params[p] = param.default
-        opts.on("--#{p} #{param.param}", String, param.description)        { |o| @params[p] = o }
+      api_params.each do |param|
+        @params[param[:name]] = param[:default] unless param[:default].nil?
+        opts.on("--#{param[:name]} #{param[:datatype]}", String, param[:description])        { |o| @params[param[:name]] = o }
       end
-      opts.order!(@arguments)
-
-      @component = @arguments.shift.to_sym unless @arguments.empty?
+      opts.order!(arguments)
 
       options_valid?
       process_options
       arguments_valid?
       process_arguments
 
-      @log = options[:log]
-      @list = case @component
-                when :incidents     then Incidents.new @options[:subdomain],@options
-                when :alerts        then Alerts.new @options[:subdomain],@options
-                when :users         then Users.new @options[:subdomain],@options
-                when :log_entries   then Log_Entries.new @options[:subdomain],@options
-                when :schedules     then Schedules.new @options[:subdomain],@options
-                when :services      then Services.new @options[:subdomain],@options
-      end
+      @connection = Connection.new options[:subdomain], c_options
     end
 
     def exec
-      component_list = @list.find(@params)
-      component_list.each { |i| puts i.to_s }
+      list = COLLECTIONS[@collection].find @connection, @params
+      list.each do |item|
+        printf "#{COLLECTIONS[@collection].sprintf_options[:format]}\n" % COLLECTIONS[@collection].sprintf_options[:fields].collect { |i| item[i.to_s] }
+      end
     end
 
     protected
