@@ -19,6 +19,7 @@ Gem::Specification.new do |s|
   s.required_rubygems_version = ">= 1.3.5"
 
   s.add_dependency('inifile')
+  s.add_dependency('rest-client')
 
   s.files        = Dir['lib/**/*.rb'] + Dir['bin/*'] + %w(LICENSE README.md)
   s.executables  = Dir['bin/*'].map { |entry| entry.gsub('bin/','') }
