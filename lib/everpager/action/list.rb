@@ -47,7 +47,7 @@ module Everpager; module Action
     end
 
     def exec
-      list = COLLECTIONS[@collection].find @connection, @params
+      list = COLLECTIONS[@collection].find_all @connection, @params
       list.each do |item|
         printf "#{COLLECTIONS[@collection].sprintf_options[:format]}\n" % COLLECTIONS[@collection].sprintf_options[:fields].collect { |i| item[i.to_s] }
       end

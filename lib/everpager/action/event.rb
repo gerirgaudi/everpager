@@ -2,10 +2,12 @@ require 'everpager/pagerduty'
 
 module Everpager; module Action
 
+  include Everpager::PagerDuty::API::Integration
+
   class Event
 
     def initialize(service_key, params = {} )
-      @event = Everpager::PagerDuty::API::Integration::Event.new service_key, params
+      @event = Event.new service_key, params
       @log = params[:log]
     end
 

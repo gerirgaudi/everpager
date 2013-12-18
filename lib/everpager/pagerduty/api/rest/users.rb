@@ -12,7 +12,7 @@ module Everpager; module PagerDuty; module API; module REST
               :description  => 'List users of your PagerDuty account, optionally filtered by a search query',
               :operations   => [
                   { :httpMethod     => :get,
-                    :nickname       => :find,
+                    :nickname       => :find_all,
                     :responseClass  => 'List[Users]',
                     :parameters => [
                         { :paramType      => :query,
@@ -25,11 +25,29 @@ module Everpager; module PagerDuty; module API; module REST
                     ]
                   }
               ]
+            },
+            { :path         => '/users/{id}',
+              :description  => 'Get information about an existing user.',
+              :operations => [
+                  { :httpMethod   => :get,
+                    :nickname     => :find,
+                    :responseClass  => 'User',
+                    :parameters     => [
+                        { :paramType      => :path,
+                          :name           => 'id',
+                          :description    => 'User Id (not username)',
+                          :datatype       => 'String',
+                          :required       => true,
+                          :allowMultiple  => false
+                        }
+                    ]
+                  }
+              ]
             }
         ]
     )
 
-    @sprintf_options = { :format => "%7s %-25s %-25s %-8s", :fields => [ :id, :name, :email, :role ] }
+    @sprintf_options = { :format => "%7s %-29s %-25s %-8s", :fields => [ :id, :name, :email, :role ] }
 
   end
 

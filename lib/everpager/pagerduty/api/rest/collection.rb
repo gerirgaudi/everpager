@@ -11,7 +11,7 @@ module Everpager; module PagerDuty; module API
     @api = nil
     @sprintf_options = nil
 
-    def self.find(connection, params = {})
+    def self.find_all(connection, params = {})
       endpoint = self.api.by_nickname[__method__][:path]
       begin
         response = connection.resource[endpoint].get :params => params
