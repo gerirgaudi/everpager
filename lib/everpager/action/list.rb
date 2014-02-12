@@ -23,7 +23,7 @@ module Everpager; module Action
       @params = {}
 
       @collection = arguments.shift.to_sym unless arguments.empty?
-      raise ArgumentError, "invalid argument #@collection" unless COLLECTIONS.has_key?(@collection)
+      raise ArgumentError, "invalid argument #{@collection}" unless COLLECTIONS.has_key?(@collection)
 
       api_params = COLLECTIONS[@collection].api.by_nickname[:find][:operation][:parameters]
 

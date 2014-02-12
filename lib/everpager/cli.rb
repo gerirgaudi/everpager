@@ -200,7 +200,7 @@ module Everpager
 
       case @action
         when :event
-          @log.debug "event: #@event"
+          @log.debug "event: #{@event}"
           event = Action::Event.new @global_options[:key], :incident_key => incident_key, :log => @log
           event.send(@event,description,@details)
         when :list

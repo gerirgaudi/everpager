@@ -27,6 +27,7 @@ module Everpager; module PagerDuty
           raise ArgumentError, "must specify service key" unless options[:service_key]
           rest_client_base_path = "https://events.pagerduty.com/generic"
           @body[:service_key] = options[:service_key]
+          @body[:incident_key] = options[:incident_key]
         else
           # auth must contain :api_token or :username,:password tuple, which will be fed to headers
           rest_client_base_path = "https://#{subdomain}.pagerduty.com/api/v1"

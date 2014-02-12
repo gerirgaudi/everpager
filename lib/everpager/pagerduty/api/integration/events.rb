@@ -1,6 +1,8 @@
 require 'json'
 require 'ostruct'
 require 'everpager/pagerduty'
+require 'awesome_print'
+
 
 module Everpager; module PagerDuty; module API; module Integration
 
@@ -39,18 +41,18 @@ module Everpager; module PagerDuty; module API; module Integration
       protected
 
       def event(e,description,details = {})
-        data = { :event_type => EVENTS[e].type, :description => description, :details => details, :service_key => @connection.body[:service_key] }
-        data.merge!({ :incident_key => @incident_key }) unless @incident_key == nil
+        data = { :event_type => EVENTS[e].type, :description => description, :details => details, :service_key => @connection.body[:service_key], :incident_key => @connection.body[:incident_key] }
+        @log.debug data
 
-        @log.debug "data: #{data}"
-
-        @response = @connection.resource['2010-04-15/create_event.json'].post(data.to_json)
-
-        raise PagerDutyError @response.message unless @response.code == 200
-
-        @description = description
-        @details = details
-        @incident_key = JSON.parse(@response.body)['incident_key']
+        begin
+          @response = @connection.resource['2010-04-15/create_event.json'].post(data.to_json)
+          @description = description
+          @details = details
+          @incident_key = JSON.parse(@response.body)['incident_key']
+        rescue RestClient::BadRequest => e
+          response = JSON.parse(e.response)
+          raise PagerDutyError, "#{response['status']}: #{response['errors'][0]}"
+        end
       end
 
       class Response
