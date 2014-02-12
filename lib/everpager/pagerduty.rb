@@ -16,7 +16,7 @@ module Everpager; module PagerDuty
 
     def initialize(subdomain,options = {})
       @body = {}
-      rest_client_options = { :headers => { :content_type => 'application/json', :user_agent => "Everpager" } }
+      rest_client_options = { :headers => { :content_type => 'application/json', :user_agent => "Everpager/#{Everpager::VERSION}" } }
 
       rest_client_base_path = nil
       case subdomain
