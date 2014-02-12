@@ -1,8 +1,6 @@
 require 'json'
 require 'ostruct'
 require 'everpager/pagerduty'
-require 'awesome_print'
-
 
 module Everpager; module PagerDuty; module API; module Integration
 
