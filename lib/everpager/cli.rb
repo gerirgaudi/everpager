@@ -80,10 +80,10 @@ module Everpager
         when :shell
           opts.separator ""
           opts.separator "Actions:"
-          opts.separator "    trigger                          Trigger Pagerduty incident"
-          opts.separator "    acknowledge                      Acknowledge a Pagerduty incident"
-          opts.separator "    resolve                          Resolve a Pagerduty indicent"
-          opts.separator "    list                             List Pagerduty incidents"
+          opts.separator "    trigger                          (Event) Trigger Pagerduty incident"
+          opts.separator "    acknowledge                      (Event) Acknowledge Pagerduty incident"
+          opts.separator "    resolve                          (Event) Resolve Pagerduty indicent"
+          opts.separator "    list <resource>                  (REST)  List <resource> (i.e., users, incidents, etc)>"
           opts.separator ""
         else
           opts.separator ""
